@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buenos días, Pablo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FDFCFA;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --text: #1A1814;
+    --text-2: #6B6760;
+    --text-3: #A09D99;
+    --accent: #2B5CE6;
+    --accent-light: #EEF2FD;
+    --green: #1A7A4A;
+    --green-light: #EAF5EF;
+    --amber: #B45309;
+    --amber-light: #FEF3C7;
+    --red: #C0392B;
+    --red-light: #FDECEC;
+    --purple: #6D28D9;
+    --purple-light: #EDE9FE;
+    --teal: #0F766E;
+    --teal-light: #CCFBF1;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 4rem;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 1.25rem 1.5rem;
+  }
+  .header-date {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .header-greeting {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    line-height: 1.15;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .header-sub {
+    font-size: 14px;
+    color: var(--text-2);
+  }
+
+  /* SECTIONS */
+  .section { padding: 1.25rem 1.25rem 0; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  /* CLIMA */
+  .clima-main {
+    padding: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .clima-ciudad {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .clima-temp {
+    font-family: 'DM Serif Display', serif;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .clima-desc {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 6px;
+  }
+  .clima-minmax {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  .clima-icon-big {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  .clima-horas {
+    display: flex;
+    border-top: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .clima-horas::-webkit-scrollbar { display: none; }
+  .hora-item {
+    flex: 1;
+    min-width: 52px;
+    text-align: center;
+    padding: 10px 6px;
+    border-right: 1px solid var(--border);
+  }
+  .hora-item:last-child { border-right: none; }
+  .hora-time { font-size: 11px; color: var(--text-3); }
+  .hora-icon { font-size: 18px; margin: 4px 0; }
+  .hora-temp { font-size: 13px; font-weight: 500; }
+
+  .clima-semana { border-top: 1px solid var(--border); }
+  .dia-row {
+    display: flex;
+    align-items: center;
+    padding: 9px 1.25rem;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dia-row:last-child { border-bottom: none; }
+  .dia-nombre { font-size: 13px; width: 32px; color: var(--text); }
+  .dia-icon { font-size: 16px; width: 20px; text-align: center; }
+  .dia-min { font-size: 12px; color: var(--text-3); width: 24px; text-align: right; }
+  .dia-bar-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 2px; }
+  .dia-bar { height: 3px; border-radius: 2px; background: linear-gradient(to right, #85B7EB, #EF9F27); }
+  .dia-max { font-size: 12px; font-weight: 500; width: 24px; text-align: right; }
+
+  /* EVENTOS */
+  .evento {
+    display: flex;
+    align-items: stretch;
+    padding: 11px 1.25rem;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .evento:last-child { border-bottom: none; }
+  .evento-bar { width: 3px; border-radius: 2px; flex-shrink: 0; }
+  .evento-hora { font-size: 11px; color: var(--text-3); margin-bottom: 2px; }
+  .evento-titulo { font-size: 14px; font-weight: 500; color: var(--text); }
+  .evento-lugar { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .evento-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 20px;
+    align-self: flex-start;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  /* LOADING / ERROR */
+  .loading {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 14px;
+  }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-day {
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 14px;
+    font-style: italic;
+  }
+
+  .location-btn {
+    display: block;
+    width: calc(100% - 2.5rem);
+    margin: 0 1.25rem 10px;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .refresh-row {
+    padding: 1rem 1.25rem 0;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .refresh-btn {
+    font-size: 12px;
+    color: var(--text-3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-date" id="header-date">—</div>
+  <div class="header-greeting">Buenos días, Pablo</div>
+  <div class="header-sub" id="header-sub">Cargando tu día...</div>
+</div>
+
+<div class="refresh-row">
+  <button class="refresh-btn" onclick="init()">↻ Actualizar</button>
+</div>
+
+<!-- CLIMA -->
+<div class="section">
+  <div class="section-label">Clima</div>
+  <div class="card" id="clima-card">
+    <div class="loading"><div class="spinner"></div>Detectando ubicación...</div>
+  </div>
+</div>
+
+<!-- CALENDARIO -->
+<div class="section">
+  <div class="section-label">Agenda de hoy</div>
+  <div class="card" id="cal-card">
+    <div class="loading"><div class="spinner"></div>Cargando eventos...</div>
+  </div>
+</div>
+
+<script>
+const ANTHROPIC_KEY = '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';
+
+const WMO = {
+  0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
+  45:'🌫️',48:'🌫️',
+  51:'🌦️',53:'🌦️',55:'🌧️',
+  61:'🌧️',63:'🌧️',65:'🌧️',
+  71:'❄️',73:'❄️',75:'❄️',
+  80:'🌦️',81:'🌧️',82:'⛈️',
+  95:'⛈️',96:'⛈️',99:'⛈️'
+};
+
+const WMO_DESC = {
+  0:'Despejado',1:'Principalmente despejado',2:'Parcialmente nublado',3:'Nublado',
+  45:'Niebla',48:'Niebla',51:'Llovizna leve',53:'Llovizna',55:'Llovizna intensa',
+  61:'Lluvia leve',63:'Lluvia',65:'Lluvia intensa',
+  71:'Nevada leve',73:'Nevada',75:'Nevada intensa',
+  80:'Chaparrones',81:'Chaparrones',82:'Chaparrones fuertes',
+  95:'Tormenta',96:'Tormenta',99:'Tormenta'
+};
+
+const GCAL_COLOR_MAP = {
+  '1': '#7986CB', '2': '#33B679', '3': '#8E24AA', '4': '#E67C73',
+  '5': '#F6BF26', '6': '#F4511E', '7': '#039BE5', '8': '#616161',
+  '9': '#3F51B5', '10': '#0B8043', '11': '#D50000',
+  'default': '#4285F4'
+};
+
+const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const DIAS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function formatDate(d) {
+  return `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatHour(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function formatHourShort(iso) {
+  const d = new Date(iso);
+  const h = d.getHours();
+  return h + 'h';
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const d = await r.json();
+    return d.address.city || d.address.town || d.address.village || 'Mi ubicación';
+  } catch(e) { return 'Mi ubicación'; }
+}
+
+async function getWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m,apparent_temperature&hourly=temperature_2m,weathercode&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=6`;
+  const r = await fetch(url);
+  return await r.json();
+}
+
+function renderClima(wx, cityName) {
+  const c = wx.current;
+  const daily = wx.daily;
+  const hourly = wx.hourly;
+  const now = new Date();
+  const currentHour = now.getHours();
+
+  const nextHours = [];
+  for (let i = 0; i < hourly.time.length; i++) {
+    const h = new Date(hourly.time[i]);
+    if (h >= now && nextHours.length < 6) {
+      nextHours.push({ time: h.getHours() + 'h', icon: WMO[hourly.weathercode[i]] || '🌡️', temp: Math.round(hourly.temperature_2m[i]) });
+    }
+  }
+
+  const maxTemps = daily.temperature_2m_max;
+  const minTemps = daily.temperature_2m_min;
+  const globalMax = Math.max(...maxTemps);
+  const globalMin = Math.min(...minTemps);
+
+  let horasHTML = nextHours.map(h => `
+    <div class="hora-item">
+      <div class="hora-time">${h.time}</div>
+      <div class="hora-icon">${h.icon}</div>
+      <div class="hora-temp">${h.temp}°</div>
+    </div>
+  `).join('');
+
+  let semanaHTML = '';
+  for (let i = 1; i < Math.min(daily.time.length, 6); i++) {
+    const d = new Date(daily.time[i] + 'T12:00:00');
+    const pct = ((maxTemps[i] - globalMin) / (globalMax - globalMin) * 80 + 10).toFixed(0);
+    semanaHTML += `
+      <div class="dia-row">
+        <div class="dia-nombre">${DIAS_SHORT[d.getDay()]}</div>
+        <div class="dia-icon">${WMO[daily.weathercode[i]] || '🌡️'}</div>
+        <div class="dia-min">${Math.round(minTemps[i])}°</div>
+        <div class="dia-bar-wrap"><div class="dia-bar" style="width:${pct}%"></div></div>
+        <div class="dia-max">${Math.round(maxTemps[i])}°</div>
+      </div>`;
+  }
+
+  document.getElementById('clima-card').innerHTML = `
+    <div class="clima-main">
+      <div>
+        <div class="clima-ciudad">📍 ${cityName}</div>
+        <div class="clima-temp">${Math.round(c.temperature_2m)}°</div>
+        <div class="clima-desc">${WMO_DESC[c.weathercode] || ''}</div>
+        <div class="clima-minmax">Sensación ${Math.round(c.apparent_temperature)}° · Viento ${Math.round(c.windspeed_10m)} km/h</div>
+      </div>
+      <div class="clima-icon-big">${WMO[c.weathercode] || '🌡️'}</div>
+    </div>
+    <div class="clima-horas">${horasHTML}</div>
+    <div class="clima-semana">${semanaHTML}</div>
+  `;
+}
+
+async function getCalendarEvents() {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+
+  const prompt = `Sos un asistente que consulta Google Calendar del usuario y devuelve los eventos de hoy en formato JSON.
+
+Fecha de hoy: ${now.toISOString()}
+Inicio del día: ${startOfDay}
+Fin del día: ${endOfDay}
+
+Consultá Google Calendar y devolvé SOLO un JSON válido con esta estructura exacta, sin texto adicional, sin markdown:
+{
+  "eventos": [
+    {
+      "titulo": "nombre del evento",
+      "hora_inicio": "HH:MM",
+      "hora_fin": "HH:MM",
+      "lugar": "ubicación o null",
+      "color": "hex color del evento o #4285F4",
+      "todo_el_dia": false
+    }
+  ]
+}
+
+Si no hay eventos, devolvé {"eventos": []}.
+Ordená por hora de inicio. Incluí todos los eventos del día incluyendo los de todo el día.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      mcp_servers: [{
+        type: 'url',
+        url: 'https://calendarmcp.googleapis.com/mcp/v1',
+        name: 'google-calendar'
+      }],
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await response.json();
+  const textBlock = data.content && data.content.find(b => b.type === 'text');
+  if (!textBlock) return { eventos: [] };
+
+  try {
+    const clean = textBlock.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch(e) {
+    return { eventos: [] };
+  }
+}
+
+function renderCalendar(data) {
+  const calCard = document.getElementById('cal-card');
+
+  if (!data.eventos || data.eventos.length === 0) {
+    calCard.innerHTML = `<div class="empty-day">Sin eventos para hoy 🎉</div>`;
+    document.getElementById('header-sub').textContent = 'Día libre — sin eventos agendados';
+    return;
+  }
+
+  const count = data.eventos.length;
+  document.getElementById('header-sub').textContent = `${count} evento${count > 1 ? 's' : ''} hoy`;
+
+  calCard.innerHTML = data.eventos.map(ev => {
+    const hora = ev.todo_el_dia ? 'Todo el día' : (ev.hora_inicio + (ev.hora_fin ? ' – ' + ev.hora_fin : ''));
+    const color = ev.color || '#4285F4';
+    const lugar = ev.lugar ? `<div class="evento-lugar">📍 ${ev.lugar}</div>` : '';
+    return `
+      <div class="evento">
+        <div class="evento-bar" style="background:${color}"></div>
+        <div style="flex:1">
+          <div class="evento-hora">${hora}</div>
+          <div class="evento-titulo">${ev.titulo}</div>
+          ${lugar}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function loadClima() {
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        const [city, wx] = await Promise.all([
+          reverseGeocode(lat, lon),
+          getWeather(lat, lon)
+        ]);
+        renderClima(wx, city);
+        resolve();
+      },
+      async () => {
+        const wx = await getWeather(-34.6037, -58.3816);
+        renderClima(wx, 'Buenos Aires');
+        resolve();
+      },
+      { timeout: 8000, maximumAge: 300000 }
+    );
+  });
+}
+
+async function loadCalendar() {
+  try {
+    const data = await getCalendarEvents();
+    renderCalendar(data);
+  } catch(e) {
+    document.getElementById('cal-card').innerHTML = `<div class="empty-day">No se pudieron cargar los eventos</div>`;
+  }
+}
+
+async function init() {
+  const now = new Date();
+  document.getElementById('header-date').textContent = formatDate(now);
+
+  document.getElementById('clima-card').innerHTML = '<div class="loading"><div class="spinner"></div>Detectando ubicación...</div>';
+  document.getElementById('cal-card').innerHTML = '<div class="loading"><div class="spinner"></div>Cargando eventos...</div>';
+
+  await Promise.all([loadClima(), loadCalendar()]);
+}
+
+init();
+</script>
+</body>
+</html>
