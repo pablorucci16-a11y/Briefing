@@ -339,10 +339,16 @@ function renderClima(wx, cityName) {
   const currentHour = now.getHours();
 
   const nextHours = [];
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  let lastAddedHour = -99;
   for (let i = 0; i < hourly.time.length; i++) {
     const h = new Date(hourly.time[i]);
-    if (h >= now && nextHours.length < 6) {
-      nextHours.push({ time: h.getHours() + 'h', icon: WMO[hourly.weathercode[i]] || '🌡️', temp: Math.round(hourly.temperature_2m[i]) });
+    if (h >= now && h <= endOfDay && nextHours.length < 6) {
+      const hh = h.getHours();
+      if (hh - lastAddedHour >= 3) {
+        nextHours.push({ time: hh + 'h', icon: WMO[hourly.weathercode[i]] || '🌡️', temp: Math.round(hourly.temperature_2m[i]) });
+        lastAddedHour = hh;
+      }
     }
   }
 
