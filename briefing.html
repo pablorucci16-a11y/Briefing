@@ -55,7 +55,7 @@
   .empty-day { padding: 1.5rem 1.25rem; text-align: center; color: var(--text-3); font-size: 14px; font-style: italic; }
   .refresh-row { padding: 1rem 1.25rem 0; display: flex; justify-content: flex-end; }
   .refresh-btn { font-size: 12px; color: var(--text-3); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-  .login-btn { display: block; width: calc(100% - 2.5rem); margin: 1rem 1.25rem; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; text-align: center; }
+  .login-btn { display: block; width: calc(100% - 2.5rem); margin: 1rem 1.25rem; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; }
 </style>
 </head>
 <body>
@@ -85,8 +85,11 @@
 </div>
 
 <script>
-const GCAL_CLIENT_ID = '510990846683-1bdiivkeag05cfo67parq2ee9495a7b9.apps.googleusercontent.com';
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const CLIENT_ID = '510990846683-1bdiivkeag05cfo67parq2ee9495a7b9.apps.googleusercontent.com';
+const REDIRECT_URI = 'https://pablorucci16-a11y.github.io/Briefing/briefing.html';
+const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+
 const GCAL_COLOR_HEX = {
   '1':'#7986CB','2':'#33B679','3':'#8E24AA','4':'#E67C73',
   '5':'#F6BF26','6':'#F4511E','7':'#039BE5','8':'#616161',
@@ -107,10 +110,49 @@ const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábad
 const DIAS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
-let accessToken = null;
-
 function formatDate(d) {
   return `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function getStoredToken() {
+  const token = sessionStorage.getItem('gcal_token');
+  const expiry = sessionStorage.getItem('gcal_expiry');
+  if (token && expiry && Date.now() < parseInt(expiry)) return token;
+  return null;
+}
+
+function storeToken(token, expiresIn) {
+  sessionStorage.setItem('gcal_token', token);
+  sessionStorage.setItem('gcal_expiry', Date.now() + expiresIn * 1000);
+}
+
+function redirectToGoogle() {
+  const state = Math.random().toString(36).substring(2);
+  sessionStorage.setItem('oauth_state', state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: 'token',
+    scope: SCOPE,
+    state: state,
+    include_granted_scopes: 'true'
+  });
+  window.location.href = `${AUTH_URL}?${params.toString()}`;
+}
+
+function parseTokenFromHash() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  const expiresIn = params.get('expires_in');
+  const state = params.get('state');
+  if (!token) return null;
+  const savedState = sessionStorage.getItem('oauth_state');
+  if (savedState && state !== savedState) return null;
+  storeToken(token, parseInt(expiresIn) || 3600);
+  window.history.replaceState({}, document.title, window.location.pathname);
+  return token;
 }
 
 async function reverseGeocode(lat, lon) {
@@ -178,35 +220,7 @@ function renderClima(wx, cityName) {
     <div class="clima-semana">${semanaHTML}</div>`;
 }
 
-function loadGIS() {
-  return new Promise(resolve => {
-    if (window.google && window.google.accounts) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.onload = resolve;
-    document.head.appendChild(s);
-  });
-}
-
-async function getToken() {
-  if (accessToken) return accessToken;
-  await loadGIS();
-  return new Promise((resolve, reject) => {
-    const tc = google.accounts.oauth2.initTokenClient({
-      client_id: GCAL_CLIENT_ID,
-      scope: GCAL_SCOPE,
-      callback: resp => {
-        if (resp.error) { reject(resp.error); return; }
-        accessToken = resp.access_token;
-        resolve(accessToken);
-      }
-    });
-    tc.requestAccessToken({ prompt: '' });
-  });
-}
-
-async function getCalendarEvents() {
-  const token = await getToken();
+async function getCalendarEvents(token) {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
@@ -215,6 +229,7 @@ async function getCalendarEvents() {
     headers: { Authorization: `Bearer ${token}` }
   });
   const calList = await calListResp.json();
+  if (calList.error) throw new Error(calList.error.message);
   const calendars = calList.items || [];
 
   const allEvents = [];
@@ -232,23 +247,31 @@ async function getCalendarEvents() {
     }
   }
   allEvents.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-  return { eventos: allEvents };
+  return allEvents;
 }
 
-function renderCalendar(data) {
+function renderCalendar(eventos) {
   const calCard = document.getElementById('cal-card');
-  if (!data.eventos || data.eventos.length === 0) {
+  if (!eventos || eventos.length === 0) {
     calCard.innerHTML = '<div class="empty-day">Sin eventos para hoy 🎉</div>';
     document.getElementById('header-sub').textContent = 'Día libre — sin eventos agendados';
     return;
   }
-  const count = data.eventos.length;
-  document.getElementById('header-sub').textContent = `${count} evento${count > 1 ? 's' : ''} hoy`;
-  calCard.innerHTML = data.eventos.map(ev => {
+  document.getElementById('header-sub').textContent = `${eventos.length} evento${eventos.length > 1 ? 's' : ''} hoy`;
+  calCard.innerHTML = eventos.map(ev => {
     const hora = ev.todo_el_dia ? 'Todo el día' : (ev.hora_inicio + (ev.hora_fin ? ' – ' + ev.hora_fin : ''));
     const lugar = ev.lugar ? `<div class="evento-lugar">📍 ${ev.lugar}</div>` : '';
     return `<div class="evento"><div class="evento-bar" style="background:${ev.color}"></div><div style="flex:1"><div class="evento-hora">${hora}</div><div class="evento-titulo">${ev.titulo}</div>${lugar}</div></div>`;
   }).join('');
+}
+
+function showLoginButton() {
+  document.getElementById('cal-card').innerHTML = `
+    <div style="padding:1.25rem;text-align:center">
+      <div style="font-size:14px;color:var(--text-2);margin-bottom:1rem">Conectá tu Google Calendar para ver los eventos del día</div>
+      <button class="login-btn" onclick="redirectToGoogle()">Conectar Google Calendar</button>
+    </div>`;
+  document.getElementById('header-sub').textContent = 'Calendario no conectado';
 }
 
 async function loadClima() {
@@ -270,18 +293,20 @@ async function loadClima() {
   });
 }
 
-async function loadCalendar() {
+async function loadCalendar(token) {
   try {
-    const data = await getCalendarEvents();
-    renderCalendar(data);
+    const eventos = await getCalendarEvents(token);
+    renderCalendar(eventos);
   } catch(e) {
-    console.error(e);
-    document.getElementById('cal-card').innerHTML = `<button class="login-btn" onclick="loadCalendar()">Conectar Google Calendar</button>`;
+    sessionStorage.removeItem('gcal_token');
+    sessionStorage.removeItem('gcal_expiry');
+    showLoginButton();
   }
 }
 
-async function refresh() {
-  accessToken = null;
+function refresh() {
+  sessionStorage.removeItem('gcal_token');
+  sessionStorage.removeItem('gcal_expiry');
   init();
 }
 
@@ -289,7 +314,16 @@ async function init() {
   document.getElementById('header-date').textContent = formatDate(new Date());
   document.getElementById('clima-card').innerHTML = '<div class="loading"><div class="spinner"></div>Detectando ubicación...</div>';
   document.getElementById('cal-card').innerHTML = '<div class="loading"><div class="spinner"></div>Cargando eventos...</div>';
-  await Promise.all([loadClima(), loadCalendar()]);
+
+  const tokenFromHash = parseTokenFromHash();
+  const token = tokenFromHash || getStoredToken();
+
+  if (token) {
+    await Promise.all([loadClima(), loadCalendar(token)]);
+  } else {
+    await loadClima();
+    showLoginButton();
+  }
 }
 
 init();
