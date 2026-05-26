@@ -56,6 +56,32 @@
   .refresh-row { padding: 1rem 1.25rem 0; display: flex; justify-content: flex-end; }
   .refresh-btn { font-size: 12px; color: var(--text-3); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   .login-btn { display: block; width: calc(100% - 2.5rem); margin: 1rem 1.25rem; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; }
+
+  /* NOTICIAS */
+  .noticia { display: flex; flex-direction: column; padding: 13px 1.25rem; gap: 6px; border-bottom: 1px solid var(--border); }
+  .noticia:last-child { border-bottom: none; }
+  .noticia-header { display: flex; align-items: center; gap: 8px; }
+  .noticia-tag { font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
+  .noticia-titulo { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.35; }
+  .noticia-resumen { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .noticia-footer { display: flex; align-items: center; justify-content: flex-end; margin-top: 2px; }
+  .noticia-claude-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--accent); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; padding: 0; text-decoration: none; opacity: 0.8; transition: opacity 0.15s; }
+  .noticia-claude-btn:hover { opacity: 1; }
+  .noticia-claude-btn svg { flex-shrink: 0; }
+  .noticias-footer { padding: 10px 1.25rem; font-size: 11px; color: var(--text-3); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .noticias-footer-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+
+  /* TAG COLORS */
+  .tag-economia   { background: #FEF3C7; color: #92400E; }
+  .tag-politica   { background: #FCE7F3; color: #9D174D; }
+  .tag-foodtech   { background: #D1FAE5; color: #065F46; }
+  .tag-ia         { background: #EDE9FE; color: #5B21B6; }
+  .tag-mundo      { background: #DBEAFE; color: #1E40AF; }
+  .tag-futbol     { background: #DCFCE7; color: #166534; }
+  .tag-otro       { background: #F3F4F6; color: #374151; }
+
+  .noticias-error { padding: 1.25rem; text-align: center; color: var(--text-3); font-size: 13px; }
+  .noticias-retry { margin-top: 10px; font-size: 12px; color: var(--accent); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; }
 </style>
 </head>
 <body>
@@ -81,6 +107,13 @@
   <div class="section-label">Agenda de hoy</div>
   <div class="card" id="cal-card">
     <div class="loading"><div class="spinner"></div>Cargando eventos...</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Noticias del día</div>
+  <div class="card" id="noticias-card">
+    <div class="loading"><div class="spinner"></div>Buscando noticias...</div>
   </div>
 </div>
 
@@ -130,12 +163,8 @@ function redirectToGoogle() {
   const state = Math.random().toString(36).substring(2);
   sessionStorage.setItem('oauth_state', state);
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: 'token',
-    scope: SCOPE,
-    state: state,
-    include_granted_scopes: 'true'
+    client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, response_type: 'token',
+    scope: SCOPE, state: state, include_granted_scopes: 'true'
   });
   window.location.href = `${AUTH_URL}?${params.toString()}`;
 }
@@ -274,6 +303,221 @@ function showLoginButton() {
   document.getElementById('header-sub').textContent = 'Calendario no conectado';
 }
 
+// ─── NOTICIAS CON CLAUDE API ─────────────────────────────────────────────────
+
+const TAG_CLASSES = {
+  economia: 'tag-economia',
+  politica: 'tag-politica',
+  foodtech: 'tag-foodtech',
+  ia: 'tag-ia',
+  mundo: 'tag-mundo',
+  futbol: 'tag-futbol',
+  otro: 'tag-otro'
+};
+
+const TAG_LABELS = {
+  economia: 'Economía AR',
+  politica: 'Política AR',
+  foodtech: 'Food & Salud',
+  ia: 'IA & Tech',
+  mundo: 'Mundo',
+  futbol: 'Fútbol AR',
+  otro: 'Otro'
+};
+
+function getNoticiasKey() {
+  const hoy = new Date();
+  return `noticias_${hoy.getFullYear()}_${hoy.getMonth()}_${hoy.getDate()}`;
+}
+
+function getCachedNoticias() {
+  try {
+    const cached = localStorage.getItem(getNoticiasKey());
+    if (cached) return JSON.parse(cached);
+  } catch(e) {}
+  return null;
+}
+
+function setCachedNoticias(data) {
+  try {
+    // Limpiar caché de días anteriores
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('noticias_') && k !== getNoticiasKey()) localStorage.removeItem(k);
+    });
+    localStorage.setItem(getNoticiasKey(), JSON.stringify(data));
+  } catch(e) {}
+}
+
+async function fetchNoticias() {
+  // Verificar caché del día
+  const cached = getCachedNoticias();
+  if (cached) {
+    renderNoticias(cached, true);
+    return;
+  }
+
+  const today = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const prompt = `Hoy es ${today}. Buscá las noticias más importantes de las últimas 24 horas en estas 6 categorías y devolvé entre 5 y 12 noticias en total. Incluí todas las que tengan peso real — no te limites si hay mucho para cubrir.
+
+1. Economía argentina (dólar, inflación, BCRA, bonos, macro)
+2. Política argentina (gobierno, congreso, provincias, elecciones)
+3. Food tech, nutrición y salud (tendencias globales, innovación en alimentos, salud)
+4. IA y tecnología (lanzamientos, avances, empresas tech)
+5. Noticias del mundo relevantes (geopolítica, economía global, eventos importantes)
+6. Fútbol argentino (resultados, partidos, fichajes, Selección, River, Boca, torneos)
+
+Respondé SOLO con un JSON válido, sin texto adicional, sin bloques de código, con esta estructura exacta:
+{
+  "noticias": [
+    {
+      "titulo": "Título claro y directo de la noticia",
+      "resumen": "Una sola oración explicando el contexto y por qué importa. Máximo 20 palabras.",
+      "categoria": "economia" | "politica" | "foodtech" | "ia" | "mundo" | "futbol",
+      "query_claude": "Pregunta específica y concreta para profundizar en esta noticia, como si la hiciera un lector interesado"
+    }
+  ],
+  "generado_a": "HH:MM"
+}
+
+Reglas:
+- El título debe ser informativo, no clickbait
+- El resumen agrega contexto que el título no da
+- Seleccioná las noticias más impactantes e importantes del día
+- Si no hay noticias frescas en alguna categoría, priorizá las de otras
+- query_claude debe ser una pregunta directa sobre esa noticia puntual, no genérica
+- generado_a es la hora actual en formato HH:MM`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+
+    // Extraer texto de la respuesta (puede haber tool_use blocks intermedios)
+    let jsonText = '';
+    for (const block of (data.content || [])) {
+      if (block.type === 'text') {
+        jsonText = block.text;
+        break;
+      }
+    }
+
+    // Si el modelo usó web_search necesitamos una segunda vuelta
+    const hasToolUse = (data.content || []).some(b => b.type === 'tool_use');
+    if (hasToolUse && !jsonText) {
+      // El modelo buscó pero no respondió aún — segunda vuelta con el resultado
+      const toolResults = (data.content || [])
+        .filter(b => b.type === 'tool_result' || b.type === 'tool_use')
+        .map(b => b);
+
+      // Armar historial para segunda vuelta
+      const followUp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [
+            { role: 'user', content: prompt },
+            { role: 'assistant', content: data.content },
+          ]
+        })
+      });
+      const data2 = await followUp.json();
+      for (const block of (data2.content || [])) {
+        if (block.type === 'text') { jsonText = block.text; break; }
+      }
+    }
+
+    if (!jsonText) throw new Error('Sin respuesta de texto');
+
+    // Limpiar posibles backticks
+    const clean = jsonText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    if (!parsed.noticias || !Array.isArray(parsed.noticias)) throw new Error('Formato inválido');
+
+    setCachedNoticias(parsed);
+    renderNoticias(parsed, false);
+
+  } catch(err) {
+    console.error('Error noticias:', err);
+    renderNoticiasError();
+  }
+}
+
+function renderNoticias(data, fromCache) {
+  const card = document.getElementById('noticias-card');
+  const noticias = data.noticias || [];
+
+  if (noticias.length === 0) {
+    card.innerHTML = '<div class="noticias-error">No se encontraron noticias para hoy.</div>';
+    return;
+  }
+
+  const noticiasHTML = noticias.map(n => {
+    const cat = n.categoria || 'otro';
+    const tagClass = TAG_CLASSES[cat] || TAG_CLASSES.otro;
+    const tagLabel = TAG_LABELS[cat] || cat;
+    const claudeUrl = n.query_claude
+      ? `https://claude.ai/new?q=${encodeURIComponent(n.query_claude)}`
+      : `https://claude.ai/new?q=${encodeURIComponent('Contame más sobre: ' + n.titulo)}`;
+    return `
+      <div class="noticia">
+        <div class="noticia-header">
+          <span class="noticia-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="noticia-titulo">${escapeHtml(n.titulo)}</div>
+        <div class="noticia-resumen">${escapeHtml(n.resumen)}</div>
+        <div class="noticia-footer">
+          <a class="noticia-claude-btn" href="${claudeUrl}" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            Saber más en Claude
+          </a>
+        </div>
+      </div>`;
+  }).join('');
+
+  const hora = data.generado_a || '—';
+  const cacheLabel = fromCache ? 'Cargado desde caché' : `Actualizado hoy a las ${hora}`;
+
+  card.innerHTML = noticiasHTML + `
+    <div class="noticias-footer">
+      <div class="noticias-footer-dot"></div>
+      <span>${cacheLabel} · Fuente: búsqueda web</span>
+    </div>`;
+}
+
+function renderNoticiasError() {
+  const card = document.getElementById('noticias-card');
+  card.innerHTML = `
+    <div class="noticias-error">
+      No se pudieron cargar las noticias de hoy.
+      <br>
+      <button class="noticias-retry" onclick="fetchNoticias()">↻ Reintentar</button>
+    </div>`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function loadClima() {
   return new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
@@ -305,8 +549,11 @@ async function loadCalendar(token) {
 }
 
 function refresh() {
+  // Al refrescar manualmente, borrar caché de noticias también
+  localStorage.removeItem(getNoticiasKey());
   sessionStorage.removeItem('gcal_token');
   sessionStorage.removeItem('gcal_expiry');
+  document.getElementById('noticias-card').innerHTML = '<div class="loading"><div class="spinner"></div>Buscando noticias...</div>';
   init();
 }
 
@@ -318,12 +565,15 @@ async function init() {
   const tokenFromHash = parseTokenFromHash();
   const token = tokenFromHash || getStoredToken();
 
+  // Clima, calendario y noticias en paralelo
+  const promises = [loadClima(), fetchNoticias()];
   if (token) {
-    await Promise.all([loadClima(), loadCalendar(token)]);
+    promises.push(loadCalendar(token));
   } else {
-    await loadClima();
     showLoginButton();
   }
+
+  await Promise.all(promises);
 }
 
 init();
