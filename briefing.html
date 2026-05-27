@@ -389,7 +389,7 @@ Reglas:
 - generado_a es la hora actual en formato HH:MM`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -420,7 +420,7 @@ Reglas:
         .map(b => b);
 
       // Armar historial para segunda vuelta
-      const followUp = await fetch('https://api.anthropic.com/v1/messages', {
+      const followUp = await fetch('https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
