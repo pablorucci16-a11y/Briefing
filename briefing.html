@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -357,12 +356,9 @@ async function fetchNoticias() {
   }
 
   try {
-    const SHEET_ID = '1UJhYjxfTfnUBF_dIx5LgXc5EclYalpF6I-IeEv87bwk';
-    const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=Sheet1&range=A1';
-    const response = await fetch(url);
-    const text = await response.text();
-    const clean = text.replace(/^"|"$/g, '').replace(/""/g, '"');
-    const data = JSON.parse(clean);
+    const PROXY = 'https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec';
+    const response = await fetch(PROXY, { redirect: 'follow' });
+    const data = await response.json();
     if (!data.noticias || !Array.isArray(data.noticias)) throw new Error('Formato inválido');
     setCachedNoticias(data);
     renderNoticias(data, false);
