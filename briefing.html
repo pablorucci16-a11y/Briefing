@@ -356,8 +356,7 @@ async function fetchNoticias() {
   }
 
   try {
-    const PROXY = 'https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec';
-    const response = await fetch(PROXY, { redirect: 'follow' });
+    const response = await fetch('https://briefing-proxy.pablo-rucci16.workers.dev');
     const data = await response.json();
     if (!data.noticias || !Array.isArray(data.noticias)) throw new Error('Formato inválido');
     setCachedNoticias(data);
