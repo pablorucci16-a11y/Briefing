@@ -349,114 +349,27 @@ function setCachedNoticias(data) {
 }
 
 async function fetchNoticias() {
-  // Verificar caché del día
   const cached = getCachedNoticias();
   if (cached) {
     renderNoticias(cached, true);
     return;
   }
 
-  const today = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-  const prompt = `Hoy es ${today}. Buscá las noticias más importantes de las últimas 24 horas en estas 6 categorías y devolvé entre 5 y 12 noticias en total. Incluí todas las que tengan peso real — no te limites si hay mucho para cubrir.
-
-1. Economía argentina (dólar, inflación, BCRA, bonos, macro)
-2. Política argentina (gobierno, congreso, provincias, elecciones)
-3. Food tech, nutrición y salud (tendencias globales, innovación en alimentos, salud)
-4. IA y tecnología (lanzamientos, avances, empresas tech)
-5. Noticias del mundo relevantes (geopolítica, economía global, eventos importantes)
-6. Fútbol argentino (resultados, partidos, fichajes, Selección, River, Boca, torneos)
-
-Respondé SOLO con un JSON válido, sin texto adicional, sin bloques de código, con esta estructura exacta:
-{
-  "noticias": [
-    {
-      "titulo": "Título claro y directo de la noticia",
-      "resumen": "Una sola oración explicando el contexto y por qué importa. Máximo 20 palabras.",
-      "categoria": "economia" | "politica" | "foodtech" | "ia" | "mundo" | "futbol",
-      "query_claude": "Pregunta específica y concreta para profundizar en esta noticia, como si la hiciera un lector interesado"
-    }
-  ],
-  "generado_a": "HH:MM"
-}
-
-Reglas:
-- El título debe ser informativo, no clickbait
-- El resumen agrega contexto que el título no da
-- Seleccioná las noticias más impactantes e importantes del día
-- Si no hay noticias frescas en alguna categoría, priorizá las de otras
-- query_claude debe ser una pregunta directa sobre esa noticia puntual, no genérica
-- generado_a es la hora actual en formato HH:MM`;
-
   try {
-    const response = await fetch('https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec', {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
+    const FILE_ID = '1LeQ6AXHqcAXX96NtBFMGUwvJBmQ3mARH';
+    const url = 'https://drive.google.com/uc?export=download&id=' + FILE_ID;
+    const response = await fetch(url);
     const data = await response.json();
-
-    // Extraer texto de la respuesta (puede haber tool_use blocks intermedios)
-    let jsonText = '';
-    for (const block of (data.content || [])) {
-      if (block.type === 'text') {
-        jsonText = block.text;
-        break;
-      }
-    }
-
-    // Si el modelo usó web_search necesitamos una segunda vuelta
-    const hasToolUse = (data.content || []).some(b => b.type === 'tool_use');
-    if (hasToolUse && !jsonText) {
-      // El modelo buscó pero no respondió aún — segunda vuelta con el resultado
-      const toolResults = (data.content || [])
-        .filter(b => b.type === 'tool_result' || b.type === 'tool_use')
-        .map(b => b);
-
-      // Armar historial para segunda vuelta
-      const followUp = await fetch('https://script.google.com/macros/s/AKfycbwkBUpqbpqojqNyHeiJNUP2rqdmB7tJzSuZIhHewY_LxmPg4lPI30e9u_IT5LbZ6CPG/exec', {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2000,
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          messages: [
-            { role: 'user', content: prompt },
-            { role: 'assistant', content: data.content },
-          ]
-        })
-      });
-      const data2 = await followUp.json();
-      for (const block of (data2.content || [])) {
-        if (block.type === 'text') { jsonText = block.text; break; }
-      }
-    }
-
-    if (!jsonText) throw new Error('Sin respuesta de texto');
-
-    // Limpiar posibles backticks
-    const clean = jsonText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-
-    if (!parsed.noticias || !Array.isArray(parsed.noticias)) throw new Error('Formato inválido');
-
-    setCachedNoticias(parsed);
-    renderNoticias(parsed, false);
-
+    if (!data.noticias || !Array.isArray(data.noticias)) throw new Error('Formato inválido');
+    setCachedNoticias(data);
+    renderNoticias(data, false);
   } catch(err) {
     console.error('Error noticias:', err);
     renderNoticiasError();
   }
 }
+
+
 
 function renderNoticias(data, fromCache) {
   const card = document.getElementById('noticias-card');
